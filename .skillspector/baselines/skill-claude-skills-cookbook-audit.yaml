@@ -1,0 +1,13 @@
+# SkillSpector baseline for .claude/skills/cookbook-audit. See docs/SUPPRESSION.md upstream.
+# Only the single reviewed false positive is accepted. All other findings stay active.
+version: 2
+scanner_version: 2.12.0
+rules: []
+fingerprints:
+- hash: sha256:ed478686e38f78e5b3889b29e9d92904becd8ffb8eea3e6f93e7f490d6006b0d
+  rule_id: P6
+  file: validate_notebook.py
+  reason: >-
+    False positive. Line 77 is the nbconvert CLI flag "--no-prompt", which strips
+    In/Out cell prompts from the markdown export. It does not reveal system prompts
+    or agent instructions.
