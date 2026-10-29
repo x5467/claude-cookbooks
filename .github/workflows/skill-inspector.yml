@@ -1,0 +1,80 @@
+name: Skill Inspector
+
+# Static security scan of every agent-facing asset with NVIDIA SkillSpector.
+# Runs without any LLM so the result does not depend on an AI vendor.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      history:
+        description: "Also scan every historical version of every agent asset"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  SKILLSPECTOR_REF: b5987a332c9a118ec4714a5c79eb76641b546251
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4.2.0 (sha-pinned)
+
+      - name: Install SkillSpector
+        run: |
+          uv tool install --python 3.12 "git+https://github.com/NVIDIA/SkillSpector.git@${SKILLSPECTOR_REF}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - name: Scan working tree
+        run: python3 scripts/skill_inspector_scan.py --out skillspector-reports
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: skillspector-reports
+          path: skillspector-reports/
+          retention-days: 30
+
+  history:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4.2.0 (sha-pinned)
+
+      - name: Install SkillSpector
+        run: |
+          uv tool install --python 3.12 "git+https://github.com/NVIDIA/SkillSpector.git@${SKILLSPECTOR_REF}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - name: Scan every historical version
+        run: python3 scripts/skill_inspector_scan.py --history --out skillspector-history
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: skillspector-history
+          path: skillspector-history/
+          retention-days: 90
