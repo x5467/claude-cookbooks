@@ -24,6 +24,7 @@ make lint          # Run linting
 make check         # Run format-check + lint
 make fix           # Auto-fix issues + format
 make test          # Run pytest
+make skill-scan    # NVIDIA SkillSpector scan of skills, .claude/, CLAUDE.md, MCP configs
 ```
 
 Or directly with uv:

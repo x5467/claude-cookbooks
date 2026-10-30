@@ -1,4 +1,4 @@
-.PHONY: help format lint check fix test clean install sort-authors \
+.PHONY: help format lint check fix test clean install sort-authors skill-scan skill-scan-history \
         test-notebooks test-notebooks-exec test-notebooks-tox test-notebooks-quick
 
 # Default target
@@ -10,6 +10,10 @@ help:
 	@echo "    make lint                - Run ruff linting checks"
 	@echo "    make check               - Run all checks (format check + lint)"
 	@echo "    make fix                 - Auto-fix issues with ruff"
+	@echo ""
+	@echo "  Security:"
+	@echo "    make skill-scan          - SkillSpector scan of all agent assets (needs skillspector)"
+	@echo "    make skill-scan-history  - SkillSpector scan of every historical asset version"
 	@echo ""
 	@echo "  Testing:"
 	@echo "    make test                - Run all pytest tests"
@@ -126,3 +130,11 @@ else ifdef NOTEBOOK_DIR
 else
 	uv run python scripts/test_notebooks.py --list
 endif
+
+# NVIDIA SkillSpector static scan of skills, .claude/, CLAUDE.md and MCP configs
+skill-scan:
+	python3 scripts/skill_inspector_scan.py
+
+skill-scan-history:
+	git fetch --unshallow 2>/dev/null || true
+	python3 scripts/skill_inspector_scan.py --history --out skillspector-history

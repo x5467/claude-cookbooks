@@ -173,3 +173,5 @@ capabilities/content_moderation/evaluation/results.json
 # the repo root (a kernel started there).
 /demo_repo/
 /claude_agent_sdk/scheduled_repository_reviewer/demo_repo/
+skillspector-reports/
+skillspector-history/
