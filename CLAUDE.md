@@ -83,7 +83,7 @@ style: lint/format
 
 ## Slash Commands
 
-These commands are available in Claude Code and CI:
+These commands are available in Claude Code:
 
 - `/notebook-review` - Review notebook quality
 - `/model-check` - Validate Claude model references
