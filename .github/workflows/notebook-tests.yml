@@ -7,6 +7,7 @@ on:
       - 'tests/notebook_tests/**'
       - 'pyproject.toml'
       - 'uv.lock'
+      - '.github/workflows/notebook-tests.yml'
   push:
     branches: [main]
     paths:
@@ -15,8 +16,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  id-token: write # Anthropic Workload Identity Federation
 
 jobs:
   test-notebooks:
@@ -121,53 +120,17 @@ jobs:
         run: |
           # Combine all test outputs
           cat test_output_*.txt > all_test_output.txt 2>/dev/null || echo "No test output files"
+          if [ "${{ steps.structure-tests.outputs.has_failures }}" = "true" ]; then
+            {
+              echo "### Test output"
+              echo '```'
+              head -200 all_test_output.txt
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
+          fi
 
-      - name: Post test results to PR
-        if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-notebooks.outputs.has_notebooks == 'true' &&
-          steps.structure-tests.outputs.has_failures == 'true'
-        uses: anthropics/claude-code-action@bbfaf8e1ffe3e688f7ab65ceee78de241e24a238 # v1.0.132 (>=v1.0.130 for WIF inputs)
-        with:
-          # Anthropic auth via Workload Identity Federation — the action
-          # exchanges this job's GitHub OIDC token (id-token: write above)
-          # for a short-lived access token instead of a static API key.
-          anthropic_federation_rule_id: fdrl_01SqmTwzmEE547mtaYN1mqHL
-          anthropic_organization_id: 1ec12c5c-6542-4da8-bf2f-c15919aef01c
-          anthropic_service_account_id: svac_01BHcCBa1UWFvNrHMqJjuaUZ
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            The notebook tests found issues in the changed notebooks.
-
-            Test results: ${{ steps.structure-tests.outputs.passed_count }} passed, ${{ steps.structure-tests.outputs.failed_count }} failed
-
-            Here is the test output:
-            ```
-            $(cat all_test_output.txt | head -200)
-            ```
-
-            Create a helpful PR comment that:
-            - Lists which notebooks failed and why
-            - Groups similar issues (e.g., "cells not executed", "execution order issues")
-            - Explains how to fix common issues:
-              - "Cells not executed": Run all cells from top to bottom before committing
-              - "Execution order issues": Restart kernel and run all cells sequentially
-              - "Deprecated models": Update to current model versions (claude-sonnet-4-6, etc.)
-              - "Hardcoded API keys": Use os.environ.get("ANTHROPIC_API_KEY") instead
-            - Mentions they can test locally with: `make test-notebooks NOTEBOOK=path/to/notebook.ipynb`
-            - Uses friendly, constructive language
-
-            Post using: gh pr comment $PR_NUMBER --body "your comment"
-          claude_args: |
-            --allowedTools "Bash(gh pr comment:*),Bash(cat:*),Read"
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-
-      # TODO: this step still reads the static ANTHROPIC_API_KEY secret. The
-      # claude-code-action step above uses Workload Identity Federation; this
-      # direct-API step needs a separate inline OIDC mint+exchange (or the
-      # anthropic SDK's WIF env-var trio). Gracefully skips when the secret
-      # is absent (the `[ -z "$ANTHROPIC_API_KEY" ]` guard below).
+      # Calls the Anthropic API only when an ANTHROPIC_API_KEY repository secret
+      # is set. Skips otherwise (the `[ -z "$ANTHROPIC_API_KEY" ]` guard below).
       - name: Run notebook execution tests (maintainers only)
         id: execution-tests
         if: |

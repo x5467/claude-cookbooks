@@ -16,8 +16,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  id-token: write # Anthropic Workload Identity Federation
 
 jobs:
   lint-and-format:
@@ -84,6 +82,11 @@ jobs:
           else
             echo "❌ Some changed files need formatting" >> $GITHUB_STEP_SUMMARY
             echo "has_format_issues=true" >> $GITHUB_OUTPUT
+            {
+              echo '```'
+              echo "$CHANGED_FILES" | xargs uv run ruff format --check 2>&1 || true
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
         continue-on-error: true
@@ -108,44 +111,14 @@ jobs:
             echo "❌ Linting issues found in changed files" >> $GITHUB_STEP_SUMMARY
             echo "has_lint_issues=true" >> $GITHUB_OUTPUT
             echo "$CHANGED_FILES" | xargs uv run ruff check 2>&1 | tee lint_output.txt || true
+            {
+              echo '```'
+              cat lint_output.txt
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
         continue-on-error: true
-
-      - name: Post lint/format issues to PR
-        if: |
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          (steps.format-check.outputs.has_format_issues == 'true' ||
-           steps.lint-check.outputs.has_lint_issues == 'true')
-        uses: anthropics/claude-code-action@bbfaf8e1ffe3e688f7ab65ceee78de241e24a238 # v1.0.132 (>=v1.0.130 for WIF inputs)
-        with:
-          # Anthropic auth via Workload Identity Federation — the action
-          # exchanges this job's GitHub OIDC token (id-token: write above)
-          # for a short-lived access token instead of a static API key.
-          anthropic_federation_rule_id: fdrl_01SqmTwzmEE547mtaYN1mqHL
-          anthropic_organization_id: 1ec12c5c-6542-4da8-bf2f-c15919aef01c
-          anthropic_service_account_id: svac_01BHcCBa1UWFvNrHMqJjuaUZ
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            The linting and formatting checks found issues.
-
-            Format check status: ${{ steps.format-check.outputs.has_format_issues == 'true' && 'Failed' || 'Passed' }}
-            Lint check status: ${{ steps.lint-check.outputs.has_lint_issues == 'true' && 'Failed' || 'Passed' }}
-
-            ${{ steps.lint-check.outputs.has_lint_issues == 'true' && format('Linting issues:\n```\n{0}\n```', steps.lint-check.outputs.lint_output) || '' }}
-
-            Create a helpful PR comment that:
-            - Summarizes the formatting and linting issues
-            - Explains how to fix them locally using: `make fix`
-            - Mentions they can check before pushing with: `make check`
-            - Uses friendly, constructive language
-
-            Post using: gh pr comment $PR_NUMBER --body "your comment"
-          claude_args: |
-            --allowedTools "Bash(gh pr comment:*)"
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Fail if issues found
         if: |

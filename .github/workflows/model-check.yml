@@ -1,0 +1,30 @@
+name: Model Check
+
+# Fails on retired or dated Claude model IDs in Python files and notebook code
+# cells. Deterministic: no AI service is called.
+
+on:
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '**/*.ipynb'
+  push:
+    branches: [main]
+    paths:
+      - '**/*.py'
+      - '**/*.ipynb'
+
+permissions:
+  contents: read
+
+jobs:
+  model-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check model IDs
+        run: python3 scripts/check_model_ids.py

@@ -23,6 +23,28 @@ NO_CREDS_WARNING = (
     "Execution tests will be skipped."
 )
 
+# Retired model IDs and their replacements. Also used by scripts/check_model_ids.py.
+DEPRECATED_MODELS = {
+    "claude-3-5-sonnet-20240620": "claude-sonnet-5",
+    "claude-3-5-sonnet-20241022": "claude-sonnet-5",
+    "claude-3-5-sonnet-latest": "claude-sonnet-5",
+    "claude-3-haiku-20240307": "claude-haiku-4-5",
+    "claude-3-5-haiku-20241022": "claude-haiku-4-5",
+    "claude-3-opus-20240229": "claude-opus-4-8",
+    "claude-3-opus-latest": "claude-opus-4-8",
+    "claude-sonnet-4-20250514": "claude-sonnet-5",
+    "claude-opus-4-20250514": "claude-opus-4-8",
+    "claude-opus-4-1": "claude-opus-4-8",
+    "claude-sonnet-4-5-20250929": "claude-sonnet-5",
+    "claude-sonnet-4-5": "claude-sonnet-5",
+    "claude-opus-4-5-20251101": "claude-opus-4-8",
+    "claude-opus-4-5": "claude-opus-4-8",
+}
+
+# Dated API model IDs such as claude-sonnet-4-6-20250514. Bedrock IDs keep their
+# date suffix and are excluded by their "anthropic." prefix.
+DATED_MODEL_PATTERN = re.compile(r"(?<!anthropic\.)\bclaude-[a-z0-9.-]*?-\d{8}\b")
+
 
 def has_anthropic_credentials() -> bool:
     """Whether Anthropic API credentials are available for notebook execution."""
@@ -118,32 +140,12 @@ class NotebookValidator:
                             }
                         )
 
-        # Check for deprecated models
-        deprecated_models = {
-            "claude-3-5-sonnet-20240620": "claude-sonnet-5",
-            "claude-3-5-sonnet-20241022": "claude-sonnet-5",
-            "claude-3-5-sonnet-latest": "claude-sonnet-5",
-            "claude-3-haiku-20240307": "claude-haiku-4-5",
-            "claude-3-5-haiku-20241022": "claude-haiku-4-5",
-            "claude-3-opus-20240229": "claude-opus-4-8",
-            "claude-3-opus-latest": "claude-opus-4-8",
-            "claude-sonnet-4-20250514": "claude-sonnet-5",
-            "claude-opus-4-20250514": "claude-opus-4-8",
-            "claude-opus-4-1": "claude-opus-4-8",
-            "claude-sonnet-4-5-20250929": "claude-sonnet-5",
-            "claude-sonnet-4-5": "claude-sonnet-5",
-            "claude-opus-4-5-20251101": "claude-opus-4-8",
-            "claude-opus-4-5": "claude-opus-4-8",
-        }
-
         for i, cell in enumerate(nb.get("cells", [])):
             if cell.get("cell_type") == "code":
                 source = "".join(cell.get("source", []))
 
                 # Check for dated API model IDs (exclude Bedrock IDs which require dates)
-                dated_pattern = r"(?<!anthropic\.)claude-\w+-[\d.]+-\d{8}"
-                dated_matches = re.findall(dated_pattern, source)
-                for dated_model in dated_matches:
+                for dated_model in DATED_MODEL_PATTERN.findall(source):
                     result["status"] = "warning" if result["status"] == "pass" else result["status"]
                     result["issues"].append(
                         {
@@ -155,7 +157,7 @@ class NotebookValidator:
                     )
 
                 # Check for deprecated models
-                for old_model, new_model in deprecated_models.items():
+                for old_model, new_model in DEPRECATED_MODELS.items():
                     if old_model in source:
                         result["status"] = (
                             "warning" if result["status"] == "pass" else result["status"]
@@ -669,22 +671,7 @@ Overall: {passing}/{total} notebooks passing ({percentage:.1f}%)
             with open(notebook_path) as f:
                 nb = json.load(f)
 
-            replacements = {
-                "claude-3-5-sonnet-20240620": "claude-sonnet-5",
-                "claude-3-5-sonnet-20241022": "claude-sonnet-5",
-                "claude-3-5-sonnet-latest": "claude-sonnet-5",
-                "claude-3-haiku-20240307": "claude-haiku-4-5",
-                "claude-3-5-haiku-20241022": "claude-haiku-4-5",
-                "claude-3-opus-20240229": "claude-opus-4-8",
-                "claude-3-opus-latest": "claude-opus-4-8",
-                "claude-sonnet-4-20250514": "claude-sonnet-5",
-                "claude-opus-4-20250514": "claude-opus-4-8",
-                "claude-opus-4-1": "claude-opus-4-8",
-                "claude-sonnet-4-5-20250929": "claude-sonnet-5",
-                "claude-sonnet-4-5": "claude-sonnet-5",
-                "claude-opus-4-5-20251101": "claude-opus-4-8",
-                "claude-opus-4-5": "claude-opus-4-8",
-            }
+            replacements = DEPRECATED_MODELS
 
             modified = False
             for cell in nb.get("cells", []):
