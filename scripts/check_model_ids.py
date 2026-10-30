@@ -58,7 +58,7 @@ def check(path: Path, name: str) -> list[str]:
     for where, line in code_lines(path):
         retired = [old for old in DEPRECATED_MODELS if old in line]
         for old in retired:
-            # Report "claude-sonnet-4-5-20250929", not also its prefix "claude-sonnet-4-5".
+            # Report a dated retired ID once, not also the undated retired ID it starts with.
             if not any(old != other and old in other for other in retired):
                 problems.append(
                     f"{name} {where}: retired model '{old}', use '{DEPRECATED_MODELS[old]}'"
